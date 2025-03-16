@@ -15,7 +15,7 @@ A Spring Boot application that shortens and redirects URLs using **Google Sheets
 
 ### **1️⃣ Clone the Repository**
 ```sh
-git clone https://github.com/your-repo/url-shortener.git
+git clone https://github.com/AIESEC-LK/Url_Shortener_Redirect_App.git
 cd url-shortener
 ```
 
