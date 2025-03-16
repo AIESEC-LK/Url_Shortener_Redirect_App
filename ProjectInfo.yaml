@@ -1,0 +1,43 @@
+project:
+  name: URL Shortener
+  description: A Spring Boot application that shortens and redirects URLs using Google Sheets.
+  version: 1.0.0
+  license: MIT
+
+author:
+  name: Lahiru Jayathilake
+  email: lahiruthpala@gmail.com
+  organization: AIESEC
+  website: https://signup.aiesec.lk
+
+deployment:
+  environment: production
+  server:
+    host: signup.aiesec.lk
+    port: 4000
+  jar:
+    path: ${urlshortener_dir}/urlshortener-${version}.jar
+  logs:
+    path: ${urlshortener_dir}/log.out
+  credentials:
+    google_sheets:
+      path: ${urlshortener_dir}/credentials.json
+      shared_email: lahirujayathilake@utmlinks-453902.iam.gserviceaccount.com
+
+api:
+  base_url: https://signup.aiesec.lk/api
+  endpoints:
+    info: /api/info
+    shorten: /api/shorten
+    redirect: /**
+
+logging:
+  level: INFO
+  file: ${urlshortener_dir}/log.out
+
+dependencies:
+  java: 17
+  frameworks:
+    - Spring Boot 3.4.3
+    - Google Sheets API
+    - SLF4J Logging
