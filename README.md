@@ -69,8 +69,6 @@ ${urlshortener_dir}/deploy.sh
 
 | Endpoint  | Method | Description |
 |-----------|--------|-------------|
-| `/api/info` | `GET` | Returns project metadata (author, version, etc.) |
-| `/api/shorten` | `POST` | Shortens a URL (stores in Google Sheets) |
 | `/` or `/**` | `GET` | Redirects to the mapped URL |
 
 ---
