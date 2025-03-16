@@ -23,8 +23,6 @@ cd url-shortener
 Create a **`.env`** file in the root directory and configure:
 ```properties
 # Project Information
-AUTHOR_NAME="Lahiru Jayathilake"
-AUTHOR_EMAIL="lahiruthpala@gmail.com"
 
 # Deployment Configurations
 SERVER_HOST="https://signup.aiesec.lk"
@@ -33,6 +31,7 @@ JAR_PATH="${urlshortener_dir}/urlshortener-0.0.1-SNAPSHOT.jar"
 LOG_FILE="${urlshortener_dir}/log.out"
 
 # Google API Credentials
+GOOGLE_SHEETS_API_KEY=${API_KEY}
 GOOGLE_CREDENTIALS_PATH="${urlshortener_dir}/credentials.json"
 SERVICE_ACCOUNT_EMAIL="lahirujayathilake@utmlinks-453902.iam.gserviceaccount.com"
 
