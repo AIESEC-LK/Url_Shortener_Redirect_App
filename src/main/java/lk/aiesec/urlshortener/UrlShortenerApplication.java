@@ -19,6 +19,7 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.servlet.http.HttpServletRequest;
+import lk.aiesec.urlshortener.models.UrlMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -46,21 +47,19 @@ public class UrlShortenerApplication {
     private static final String REGEX_FOR_SHEET_NAME = dotenv.get("REGEX_FOR_SHEET_NAME", ".*");
     private static final String CREDENTIALS_PATH = dotenv.get("GOOGLE_CREDENTIALS_PATH", "src/main/resources/credentials.json");
 
-    private final Map<String, String> urlMap = new HashMap<>();
     private long lastRefreshTime = 0;
-    private final long REFRESH_INTERVAL = 10000;
+    private Map<String, UrlMetadata> urlMetadataMap = new HashMap<>();
 
     // Modified to use Service Account credentials
     private static GoogleCredentials getCredentials() throws IOException {
-        String credentialsPath = dotenv.get("GOOGLE_CREDENTIALS_PATH");
 
-        if (credentialsPath == null || credentialsPath.isEmpty()) {
+        if (CREDENTIALS_PATH == null || CREDENTIALS_PATH.isEmpty()) {
             throw new FileNotFoundException("GOOGLE_CREDENTIALS_PATH is not set in the .env file.");
         }
 
-        File credentialsFile = new File(credentialsPath);
+        File credentialsFile = new File(CREDENTIALS_PATH);
         if (!credentialsFile.exists()) {
-            throw new FileNotFoundException("Credentials file not found at: " + credentialsPath);
+            throw new FileNotFoundException("Credentials file not found at: " + CREDENTIALS_PATH);
         }
 
         try (InputStream in = new FileInputStream(credentialsFile)) {
@@ -105,12 +104,17 @@ public class UrlShortenerApplication {
             return;
         }
 
-        urlMap.clear();
+        urlMetadataMap.clear();
         for (List<Object> row : values) {
             if (row.size() >= 2) {
                 String shortcut = row.get(0).toString().toLowerCase();
                 String url = row.get(1).toString();
-                urlMap.put(shortcut, url);
+                String title = row.size() >= 3 ? row.get(2).toString() : null;
+                String description = row.size() >= 4 ? row.get(3).toString() : null;
+                String image = row.size() >= 5 ? row.get(4).toString() : null;
+                String type = row.size() >= 6 ? row.get(5).toString() : null;
+                UrlMetadata data = new UrlMetadata(url, title, description, image, type);
+                urlMetadataMap.put(shortcut, data);
                 logger.debug("Loaded shortcut: [{}] -> [{}]", shortcut, url);
             }
         }
@@ -125,9 +129,26 @@ public class UrlShortenerApplication {
         return SHEET_NAME; // Default fallback
     }
 
+    private String generateOpenGraphHtml(UrlMetadata metadata) {
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "    <meta property=\"og:title\" content=\"" + metadata.getTitle() + "\" />\n" +
+                "    <meta property=\"og:description\" content=\"" + metadata.getDescription() + "\" />\n" +
+                "    <meta property=\"og:image\" content=\"" + metadata.getImageUrl() + "\" />\n" +
+                "    <meta property=\"og:url\" content=\"" + metadata.getTargetUrl() + "\" />\n" +
+                "    <meta property=\"og:type\" content=\"" + metadata.getType() + "\" />\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "    <p>Redirecting to " + metadata.getTargetUrl() + "</p>\n" +
+                "</body>\n" +
+                "</html>";
+    }
+
     @GetMapping("/**")
     public String redirect(HttpServletRequest request) throws IOException, GeneralSecurityException {
         long currentTime = System.currentTimeMillis();
+        long REFRESH_INTERVAL = 10000;
         if (currentTime - lastRefreshTime > REFRESH_INTERVAL) {
             logger.info("Refreshing cache before processing request...");
             refreshUrlMappings();
@@ -147,11 +168,23 @@ public class UrlShortenerApplication {
         logger.info("Received request for shortcut: [{}]", fullShortcut);
 
         // Look up in mapping
-        String url = urlMap.get(fullShortcut.toLowerCase());
+        String url = urlMetadataMap.get(fullShortcut.toLowerCase()).getTargetUrl();
+        UrlMetadata metadata = urlMetadataMap.get(fullShortcut.toLowerCase());
 
-        if (url != null) {
-            logger.info("Redirecting [{}] to [{}]", fullShortcut, url);
-            return "<meta http-equiv='refresh' content='0; url=" + url + "'>";
+        if (metadata != null) {
+            // Check if it's Facebook's bot
+            String userAgent = request.getHeader("User-Agent");
+            boolean isFacebookBot = userAgent != null &&
+                    (userAgent.contains("facebookexternalhit") ||
+                            userAgent.contains("Facebook") ||
+                            userAgent.contains("facebookcatalog"));
+
+            if (isFacebookBot) {
+                return generateOpenGraphHtml(metadata);
+            } else {
+                logger.info("Redirecting [{}] to [{}]", fullShortcut, url);
+                return "<meta http-equiv='refresh' content='0; url=" + url + "'>";
+            }
         }
 
         logger.warn("Shortcut [{}] not found. Redirecting to homepage.", fullShortcut);
