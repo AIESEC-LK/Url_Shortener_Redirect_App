@@ -1,0 +1,45 @@
+name: Deploy Spring Boot to Azure VM
+
+on:
+  push:
+    branches: ["release"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'  # Change if using a different JDK version
+
+      - name: Build Spring Boot JAR
+        run: |
+          ./mvnw clean package -DskipTests
+          mv target/*.jar UrlShortener.jar  # Rename the built JAR to a standard name
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AZURE_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.AZURE_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy JAR to Azure VM
+        run: |
+          scp UrlShortener.jar ${{ secrets.AZURE_USER }}@${{ secrets.AZURE_HOST }}:${{ secrets.DEPLOY_PATH }}/UrlShortener.jar
+
+      - name: Restart App with PM2
+        run: |
+          ssh ${{ secrets.AZURE_USER }}@${{ secrets.AZURE_HOST }} << 'EOF'
+            pm2 restart urlshortener || pm2 start java --name "urlshortener" -- -jar ${{ secrets.DEPLOY_PATH }}/UrlShortener.jar > ${{ secrets.DEPLOY_PATH }}/UrlShortener.jar/log.out 2>&1
+            pm2 save
+          EOF
