@@ -23,6 +23,7 @@ jobs:
 
       - name: Build Spring Boot JAR
         run: |
+          chmod +x mvnw
           ./mvnw clean package -DskipTests
           mv target/*.jar UrlShortener.jar  # Rename the built JAR to a standard name
 
