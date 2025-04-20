@@ -159,7 +159,12 @@ public class UrlShortenerApplication {
         String path = request.getRequestURI();
         String queryString = request.getQueryString();
         if (queryString != null) {
-            path += "?" + queryString;
+            int index = queryString.indexOf('&');
+            if (index != -1) {
+                path += "?" + queryString.substring(0, index);
+            } else {
+                path += "?" + queryString;
+            }
         }
 
         // Construct the full shortcut key
@@ -168,7 +173,12 @@ public class UrlShortenerApplication {
         logger.info("Received request for shortcut: [{}]", fullShortcut);
 
         // Look up in mapping
-        String url = urlMetadataMap.get(fullShortcut.toLowerCase()).getTargetUrl();
+        String url = null;
+        try {
+            url = urlMetadataMap.get(fullShortcut.toLowerCase()).getTargetUrl();
+        }catch (Exception e){
+            return "<meta http-equiv='refresh' content='0; url=" + ROOT_URL + "'>";
+        }
         UrlMetadata metadata = urlMetadataMap.get(fullShortcut.toLowerCase());
 
         if (metadata != null) {
